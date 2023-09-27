@@ -1,0 +1,61 @@
+services:
+
+  a-service:
+    image: a-service:latest
+    restart: always
+    build:
+      context: .
+      dockerfile: ./build/Dockerfile
+      args:
+        app: a-service
+    environment:
+      SERVICE_PORT: 8000
+      NEXT_SERVICE: b-service
+      NEXT_SERVICE_PORT: 8100
+      OTLP_ENDPOINT: otel-collector:4318
+    ports:
+      - 8000:8000
+
+  b-service:
+    image: b-service:latest
+    restart: always
+    build:
+      context: .
+      dockerfile: ./build/Dockerfile
+      args:
+        app: b-service
+    environment:
+      SERVICE_PORT: 8100
+      NEXT_SERVICE: c-service
+      NEXT_SERVICE_PORT: 8200
+      OTLP_ENDPOINT: otel-collector:4318
+    ports:
+      - 8100:8100
+
+  c-service:
+    image: c-service:latest
+    restart: always
+    build:
+      context: .
+      dockerfile: ./build/Dockerfile
+      args:
+        app: c-service
+    environment:
+      SERVICE_PORT: 8200
+      OTLP_ENDPOINT: otel-collector:4318
+    ports:
+      - 8200:8200
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest-arm64
+    command: [ --config=/etc/otel-collector-config.yaml ]
+    volumes:
+      - ./otel-collector-config.yml:/etc/otel-collector-config.yaml
+    ports:
+      - 4318:4318
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.46.0
+    ports:
+      - 4317
+      - 16686:16686
