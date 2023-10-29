@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
+	"go-tracing-bridge/common/observability/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"net/http"
 	"os"
 	"time"
@@ -25,8 +27,10 @@ type handler struct {
 
 func NewHandler() Handler {
 	return &handler{
-		Mux:    chi.NewMux(),
-		client: http.Client{},
+		Mux: chi.NewMux(),
+		client: http.Client{
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+		},
 	}
 }
 
@@ -36,7 +40,10 @@ func (h *handler) CreateAllRoutes() {
 
 func post(client http.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		spanCtx, span := tracing.GetTracer().Start(r.Context(), "sending request")
+		defer span.End()
+
+		ctx, cancel := context.WithTimeout(spanCtx, time.Second*10)
 		defer cancel()
 
 		endpoint := fmt.Sprintf("http://%s:%s/in", os.Getenv("NEXT_SERVICE"), os.Getenv("NEXT_SERVICE_PORT"))
